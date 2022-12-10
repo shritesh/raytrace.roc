@@ -8,40 +8,47 @@ RNG := U32
 init : RNG
 init = @RNG 0
 
-u32 : RNG -> { rng : RNG, value : U32 }
-u32 = \@RNG seed ->
-    value = seed |> Num.mulWrap 1664525 |> Num.addWrap 1013904223
+u32 : RNG, (RNG, U32 -> a) -> a
+u32 = \@RNG seed, fn ->
+    value =
+        seed
+        |> Num.mulWrap 1664525
+        |> Num.addWrap 1013904223
 
-    { rng: @RNG value, value }
+    fn (@RNG value) value
 
-real : RNG -> { rng : RNG, value : F64 }
-real = \rng ->
-    { rng: newRng, value: uValue } = u32 rng
-
+real : RNG, (RNG, F64 -> a) -> a
+real = \rng, fn ->
+    newRng, u32Value <- u32 rng
     max = Num.toF64 Num.maxU32 |> Num.add 1
-    value = Num.toF64 uValue / max
+    value = Num.toF64 u32Value / max
 
-    { rng: newRng, value }
+    fn newRng value
 
-between : RNG, { min : F64, max : F64 } -> { rng : RNG, value : F64 }
-between = \rng, { min, max } ->
-    state = real rng
-    value = min + (max - min) * state.value
+between : RNG, { min : F64, max : F64 }, (RNG, F64 -> a) -> a
+between = \rng, { min, max }, fn ->
+    newRng, realValue <- real rng
 
-    { rng: state.rng, value }
+    value = min + (max - min) * realValue
 
-vec : RNG -> { rng : RNG, value : Vec }
-vec = \rng ->
-    x = real rng
-    y = real x.rng
-    z = real y.rng
+    fn newRng value
 
-    { rng: z.rng, value: { x: x.value, y: y.value, z: z.value } }
+vec : RNG, (RNG, Vec -> a) -> a
+vec = \rng, fn ->
+    xRng, x <- real rng
+    yRng, y <- real xRng
+    zRng, z <- real yRng
 
-vecBetween : RNG, { min : F64, max : F64 } -> { rng : RNG, value : Vec }
-vecBetween = \rng, range ->
-    x = between rng range
-    y = between x.rng range
-    z = between y.rng range
+    value = { x, y, z }
 
-    { rng: z.rng, value: { x: x.value, y: y.value, z: z.value } }
+    fn zRng value
+
+vecBetween : RNG, { min : F64, max : F64 }, (RNG, Vec -> a) -> a
+vecBetween = \rng, range, fn ->
+    xRng, x <- between rng range
+    yRng, y <- between xRng range
+    zRng, z <- between yRng range
+
+    value = { x, y, z }
+
+    fn zRng value
