@@ -19,6 +19,5 @@ path = "src/main.rs"
 [dependencies]
 roc_std = { path = "../../roc/crates/roc_std" }
 libc = "0.2"
-rand = "0.8.5"
 
 [workspace]

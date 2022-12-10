@@ -146,8 +146,3 @@ pub extern "C" fn roc_fx_writeLine(line: &RocStr) {
     println!("{}", string);
     std::io::stdout().lock().flush();
 }
-
-#[no_mangle]
-pub extern "C" fn roc_fx_randF64() -> f64 {
-    0.5
-}
