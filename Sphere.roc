@@ -8,8 +8,6 @@ make : Vec, F64 -> Sphere
 make = \center, radius ->
     @Sphere { center, radius }
 
-# The first book only deals with spheres so a `Hittable` ability is overkill
-# Will revisit if I do the later books
 hit : Sphere, Ray, { min : F64, max : F64 } -> Result HitRecord [NoHit]
 hit = \@Sphere { center, radius }, ray, { min, max } ->
     oc = Vec.sub ray.origin center
