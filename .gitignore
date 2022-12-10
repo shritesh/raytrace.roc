@@ -1,0 +1,4 @@
+Raytrace
+*.ppm
+*.o
+platform/target/
