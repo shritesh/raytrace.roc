@@ -1,6 +1,6 @@
 hosted Effect
-    exposes [Effect, after, map, always, forever, loop, writeLine]
+    exposes [Effect, after, map, always, forever, loop, writeImage]
     imports []
     generates Effect with [after, map, always, forever, loop]
 
-writeLine : Str -> Effect {}
+writeImage : Str -> Effect {}

@@ -1,5 +1,5 @@
 interface RNG
-    exposes [RNG, init, real, between, vec, vecBetween]
+    exposes [RNG, init, real, between, vec, vecBetween, vecInUnitSphere]
     imports [Vec.{ Vec }]
 
 # Simple linear congruential generator
@@ -52,3 +52,13 @@ vecBetween = \rng, range, fn ->
     value = { x, y, z }
 
     fn zRng value
+
+# TODO: Is this recursion okay?
+vecInUnitSphere : RNG, (RNG, Vec -> a) -> a
+vecInUnitSphere = \rng, fn ->
+    newRng, candidate <- vecBetween rng { min: -1, max: 1 }
+
+    if Vec.lengthSquared candidate >= 1 then
+        vecInUnitSphere newRng fn
+    else
+        fn newRng candidate

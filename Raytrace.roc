@@ -1,7 +1,7 @@
 app "Raytrace"
     packages { pf: "platform/main.roc" }
     imports [
-        pf.Stdout,
+        pf.Image,
         Camera.{ Camera },
         Vec.{ Vec, Color },
         RNG,
@@ -64,10 +64,11 @@ main =
     iw = Num.toStr camera.imageWidth
     ih = Num.toStr camera.imageHeight
 
-    Stdout.line
+    Image.write
         """
         P3
         \(iw) \(ih)
         256
         \(body)
+        
         """

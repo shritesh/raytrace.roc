@@ -141,8 +141,7 @@ unsafe fn call_the_closure(closure_data_ptr: *const u8) -> i64 {
 }
 
 #[no_mangle]
-pub extern "C" fn roc_fx_writeLine(line: &RocStr) {
-    let string = line.as_str();
-    println!("{}", string);
-    std::io::stdout().lock().flush();
+pub extern "C" fn roc_fx_writeImage(string: &RocStr) {
+    let contents = string.as_str();
+    std::fs::write("image.ppm", contents).expect("unable to write to image.ppm");
 }
