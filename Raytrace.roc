@@ -1,11 +1,10 @@
 app "Raytrace"
     packages { pf: "platform/main.roc" }
     imports [
-        pf.Random,
         pf.Stdout,
-        pf.Task,
         Camera.{ Camera },
         Vec.{ Vec, Color },
+        RNG,
         Ray.{ Ray },
         Sphere.{ Sphere },
         HittableList.{ HittableList },
@@ -40,21 +39,25 @@ color = \ray, hittableList ->
             Vec.add white blue |> Vec.toColor
 
 main =
-    tasks =
+    allPixels =
         j <- List.range { start: At 0, end: Before camera.imageHeight } |> List.reverse |> List.joinMap
         i <- List.range { start: At 0, end: Before camera.imageWidth } |> List.map
-        uRand <- Task.await Random.f64
-        vRand <- Task.map Random.f64
+        { i, j }
+
+    image =
+        state, { i, j } <- List.walk allPixels { rng: RNG.init, colors: [] }
+        uRng, uRand <- RNG.real state.rng
+        vRng, vRand <- RNG.real uRng
         u = (Num.toFrac i + uRand) / Num.toFrac (camera.imageWidth - 1)
         v = (Num.toFrac j + vRand) / Num.toFrac (camera.imageHeight - 1)
         ray = Camera.ray camera u v
 
-        color ray world
+        c = color ray world
 
-    colors <- Task.combine tasks |> Task.await
+        { colors: List.append state.colors c, rng: vRng }
 
     body =
-        colors
+        image.colors
         |> List.map \c -> Vec.toPixel c 1
         |> Str.joinWith "\n"
 
