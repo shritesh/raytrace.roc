@@ -31,7 +31,7 @@ color = \ray, hittableList, depth, rng, fn ->
     else
         when Hittable.hit hittableList ray { min: 0.001, max: Num.maxF64 } is
             Ok rec ->
-                newRng, unitVec <- RNG.unitVec rng
+                newRng, unitVec <- RNG.unitVec rng {}
 
                 target =
                     unitVec
@@ -59,12 +59,12 @@ main =
         { i, j }
 
     image =
-        state, { i, j } <- List.walk allPixels { rng: RNG.init, colors: [] }
+        state, { i, j } <- List.walk allPixels { rng: RNG.default, colors: [] }
 
         multiSampled =
             multisampleState, _ <- List.range { start: At 0, end: Length samples } |> List.walk { rng: state.rng, color: Color.zero }
-            uRng, uRand <- RNG.real multisampleState.rng
-            vRng, vRand <- RNG.real uRng
+            uRng, uRand <- RNG.real multisampleState.rng {}
+            vRng, vRand <- RNG.real uRng {}
             u = (Num.toFrac i + uRand) / Num.toFrac (camera.imageWidth - 1)
             v = (Num.toFrac j + vRand) / Num.toFrac (camera.imageHeight - 1)
             ray = Camera.ray camera u v
