@@ -1,6 +1,6 @@
 interface RNG
     # TODO: find a way to implement a map somehow
-    exposes [RNG, init, real, between, vec, vecBetween, vecInUnitSphere]
+    exposes [RNG, init, real, between, vec, vecBetween, vecInUnitSphere, unitVec]
     imports [Vec.{ Vec }]
 
 # Simple linear congruential generator
@@ -63,3 +63,9 @@ vecInUnitSphere = \rng, fn ->
         vecInUnitSphere newRng fn
     else
         fn newRng candidate
+
+unitVec : RNG, (RNG, Vec -> a) -> a
+unitVec = \rng, fn ->
+    newRng, unitSphereVec <- vecInUnitSphere rng
+
+    fn newRng (Vec.unit unitSphereVec)

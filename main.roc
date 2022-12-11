@@ -31,10 +31,10 @@ color = \ray, hittableList, depth, rng, fn ->
     else
         when Hittable.hit hittableList ray { min: 0.001, max: Num.maxF64 } is
             Ok rec ->
-                newRng, unitSphereVec <- RNG.vecInUnitSphere rng
+                newRng, unitVec <- RNG.unitVec rng
 
                 target =
-                    unitSphereVec
+                    unitVec
                     |> Vec.add rec.normal
                     |> Vec.add rec.p
 
