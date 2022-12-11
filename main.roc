@@ -31,12 +31,9 @@ color = \ray, hittableList, depth, rng, fn ->
     else
         when Hittable.hit hittableList ray { min: 0.001, max: Num.maxF64 } is
             Ok rec ->
-                newRng, unitVec <- RNG.unitVec rng
+                newRng, hemisphereVec <- RNG.vecInHemisphere rng rec.normal
 
-                target =
-                    unitVec
-                    |> Vec.add rec.normal
-                    |> Vec.add rec.p
+                target = Vec.add rec.p hemisphereVec
 
                 origin = rec.p
                 direction = Vec.sub target rec.p

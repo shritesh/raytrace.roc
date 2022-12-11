@@ -1,6 +1,6 @@
 interface RNG
     # TODO: find a way to implement a map somehow
-    exposes [RNG, init, real, between, vec, vecBetween, vecInUnitSphere, unitVec]
+    exposes [RNG, init, real, between, vec, vecBetween, vecInUnitSphere, unitVec, vecInHemisphere]
     imports [Vec.{ Vec }]
 
 # Simple linear congruential generator
@@ -69,3 +69,15 @@ unitVec = \rng, fn ->
     newRng, unitSphereVec <- vecInUnitSphere rng
 
     fn newRng (Vec.unit unitSphereVec)
+
+vecInHemisphere : RNG, Vec, (RNG, Vec -> a) -> a
+vecInHemisphere = \rng, normal, fn ->
+    newRng, unitSphereVec <- vecInUnitSphere rng
+
+    v =
+        if Vec.dot unitSphereVec normal > 0 then
+            unitSphereVec
+        else
+            Vec.neg unitSphereVec
+
+    fn newRng v
