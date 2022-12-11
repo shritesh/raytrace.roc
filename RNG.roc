@@ -1,5 +1,5 @@
 interface RNG
-    exposes [RNG, Generator, default, real, between, vec, vecBetween, vecInUnitSphere, unitVec]
+    exposes [RNG, Generator, default, andThen, real, between, vec, vecBetween, vecInUnitSphere, unitVec]
     imports [Vec.{ Vec }]
 
 Generator a b c : RNG, a, (RNG, b -> c) -> c
@@ -9,6 +9,12 @@ RNG := U32
 
 default : RNG
 default = @RNG 0
+
+andThen : Generator a b c, a, (d, b -> e) -> Generator d e c
+andThen = \generator, init, fn ->
+    \rng, newInit, newFn ->
+        newRng, value <- generator rng init
+        newFn newRng (fn newInit value)
 
 u32 : Generator {} U32 *
 u32 = \@RNG seed, {}, fn ->
@@ -20,20 +26,17 @@ u32 = \@RNG seed, {}, fn ->
     fn (@RNG value) value
 
 real : Generator {} F64 *
-real = \rng, {}, fn ->
-    newRng, u32Value <- u32 rng {}
+real =
+    {}, u32Value <- andThen u32 {}
     max = Num.toF64 Num.maxU32 |> Num.add 1
-    value = Num.toF64 u32Value / max
 
-    fn newRng value
+    Num.toF64 u32Value / max
 
 between : Generator { min : F64, max : F64 } F64 *
-between = \rng, { min, max }, fn ->
-    newRng, realValue <- real rng {}
+between =
+    { min, max }, realValue <- andThen real {}
 
-    value = min + (max - min) * realValue
-
-    fn newRng value
+    min + (max - min) * realValue
 
 vec : Generator {} Vec *
 vec = \rng, {}, fn ->
@@ -67,7 +70,6 @@ vecInUnitSphere = \rng, {}, fn ->
         fn newRng candidate
 
 unitVec : Generator {} Vec *
-unitVec = \rng, {}, fn ->
-    newRng, unitSphereVec <- vecInUnitSphere rng {}
-
-    fn newRng (Vec.unit unitSphereVec)
+unitVec =
+    {}, unitSphereVec <- andThen vecInUnitSphere {}
+    Vec.unit unitSphereVec
