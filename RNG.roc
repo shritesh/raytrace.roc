@@ -1,4 +1,5 @@
 interface RNG
+    # TODO: find a way to implement a map somehow
     exposes [RNG, init, real, between, vec, vecBetween, vecInUnitSphere]
     imports [Vec.{ Vec }]
 

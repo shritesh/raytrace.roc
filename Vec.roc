@@ -1,6 +1,7 @@
 interface Vec
     exposes [
         Vec,
+        zero,
         neg,
         add,
         sub,
@@ -13,14 +14,13 @@ interface Vec
         unit,
         length,
         lengthSquared,
-        Color,
-        toColor,
-        toPixel,
     ]
-    imports [Math]
+    imports []
 
 Vec : { x : F64, y : F64, z : F64 }
-Color : { r : F64, g : F64, b : F64 }
+
+zero : Vec
+zero = { x: 0, y: 0, z: 0 }
 
 neg : Vec -> Vec
 neg = \v -> {
@@ -90,20 +90,3 @@ length = \v ->
 lengthSquared : Vec -> F64
 lengthSquared = \v ->
     v.x * v.x + v.y * v.y + v.z * v.z
-
-toColor : Vec -> Color
-toColor = \v -> {
-    r: v.x,
-    g: v.y,
-    b: v.z,
-}
-
-toPixel : Color, Num * -> Str
-toPixel = \{ r, g, b }, samples ->
-    sc = 1 / Num.toFrac samples
-
-    ir = 256 * Math.clamp (r * sc) { min: 0, max: 0.999 } |> Num.floor |> Num.toStr
-    ig = 256 * Math.clamp (g * sc) { min: 0, max: 0.999 } |> Num.floor |> Num.toStr
-    ib = 256 * Math.clamp (b * sc) { min: 0, max: 0.999 } |> Num.floor |> Num.toStr
-
-    "\(ir) \(ig) \(ib)"

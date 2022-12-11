@@ -22,7 +22,7 @@ default =
     viewportWidth = aspectRatio * viewportHeight
     focalLength = 1
 
-    origin = { x: 0, y: 0, z: 0 }
+    origin = Vec.zero
     horizontal = { x: viewportWidth, y: 0, z: 0 }
     vertical = { x: 0, y: viewportHeight, z: 0 }
     lowerLeftCorner =
