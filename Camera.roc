@@ -1,51 +1,64 @@
 interface Camera
-    exposes [Camera, default, ray]
-    imports [Vec.{ Vec }, Ray.{ Ray }]
+    exposes [Camera, make, ray]
+    imports [Vec.{ Vec }, Ray.{ Ray }, RNG.{ RNG }, Math]
 
 Camera : {
     origin : Vec,
+    lowerLeftCorner : Vec,
     horizontal : Vec,
     vertical : Vec,
-    lowerLeftCorner : Vec,
-    imageWidth : Nat,
-    imageHeight : Nat,
+    u : Vec,
+    v : Vec,
+    w : Vec,
+    lensRadius : F64,
 }
 
-default : Camera
-default =
-    aspectRatio = 16 / 9
-
-    imageWidth = 400
-    imageHeight = imageWidth / aspectRatio |> Num.floor
-
-    viewportHeight = 2
+make : { lookFrom : Vec, lookAt : Vec, up : Vec, fov : F64, aspectRatio : F64, aperture : F64, focusDist : F64 } -> Camera
+make = \{ lookFrom, lookAt, up, fov, aspectRatio, aperture, focusDist } ->
+    theta = Math.degToRad fov
+    h = Num.tan (theta / 2)
+    viewportHeight = 2 * h
     viewportWidth = aspectRatio * viewportHeight
-    focalLength = 1
 
-    origin = Vec.zero
-    horizontal = { x: viewportWidth, y: 0, z: 0 }
-    vertical = { x: 0, y: viewportHeight, z: 0 }
+    w = Vec.sub lookFrom lookAt |> Vec.unit
+    u = Vec.cross up w |> Vec.unit
+    v = Vec.cross w u
+
+    origin = lookFrom
+    horizontal = Vec.scale u (viewportWidth * focusDist)
+    vertical = Vec.scale v (viewportHeight * focusDist)
+
     lowerLeftCorner =
         origin
         |> Vec.sub (Vec.shrink horizontal 2)
         |> Vec.sub (Vec.shrink vertical 2)
-        |> Vec.sub { x: 0, y: 0, z: focalLength }
+        |> Vec.sub (Vec.scale w focusDist)
+
+    lensRadius = aperture / 2
 
     {
-        imageWidth,
-        imageHeight,
         origin,
+        lowerLeftCorner,
         horizontal,
         vertical,
-        lowerLeftCorner,
+        u,
+        v,
+        w,
+        lensRadius,
     }
 
-ray : Camera, F64, F64 -> Ray
-ray = \{ origin, horizontal, vertical, lowerLeftCorner }, u, v ->
+ray : Camera, F64, F64, RNG, (RNG, Ray -> a) -> a
+ray = \{ u, v, lowerLeftCorner, lensRadius, horizontal, vertical, origin }, s, t, rng, fn ->
+    newRng, unitDisk <- RNG.vecInUnitDisk rng
+    rd = Vec.scale unitDisk lensRadius
+
+    offset = Vec.add (Vec.scale u rd.x) (Vec.scale v rd.y)
+
     direction =
         lowerLeftCorner
-        |> Vec.add (Vec.scale horizontal u)
-        |> Vec.add (Vec.scale vertical v)
+        |> Vec.add (Vec.scale horizontal s)
+        |> Vec.add (Vec.scale vertical t)
         |> Vec.sub origin
+        |> Vec.sub offset
 
-    { origin, direction }
+    fn newRng { origin: Vec.add origin offset, direction }
