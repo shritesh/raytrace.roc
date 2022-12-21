@@ -1,16 +1,19 @@
 interface World
-    exposes [hit, World]
-    imports [HitRecord.{ HitRecord }, Ray.{ Ray }, Sphere.{ Sphere }]
+    exposes [World, hit]
+    imports [Sphere.{ Sphere }, Ray.{ Ray }, HitRecord.{ HitRecord }, Material.{ Material }]
 
 World : List Sphere
 
-hit : World, Ray, { min : F64, max : F64 } -> Result HitRecord [NoHit]
+hit : World, Ray, { min : F64, max : F64 } -> Result { rec : HitRecord, mat : Material } [NoHit]
 hit = \world, ray, { min, max } ->
     final =
-        state, sphere <- List.walk world { closestSoFar: max, rec: Err NoHit }
+        state, sphere <- List.walk world { closestSoFar: max, recAndMat: Err NoHit }
 
         when Sphere.hit sphere ray { min, max: state.closestSoFar } is
-            Ok rec -> { closestSoFar: rec.t, rec: Ok rec }
-            Err _ -> state
+            Ok recAndMat ->
+                { closestSoFar: recAndMat.rec.t, recAndMat: Ok recAndMat }
 
-    final.rec
+            Err _ ->
+                state
+
+    final.recAndMat

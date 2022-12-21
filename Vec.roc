@@ -15,6 +15,8 @@ interface Vec
         unit,
         length,
         lengthSquared,
+        nearZero,
+        reflect,
     ]
     imports []
 
@@ -94,3 +96,13 @@ length = \v ->
 lengthSquared : Vec -> F64
 lengthSquared = \{ x, y, z } ->
     x * x + y * y + z * z
+
+nearZero : Vec -> Bool
+nearZero = \{ x, y, z } ->
+    s = 1e-8
+
+    Num.abs x < s && Num.abs y < s && Num.abs z < s
+
+reflect : Vec, Vec -> Vec
+reflect = \v, n ->
+    Vec.sub v (Vec.scale n (2 * Vec.dot v n))

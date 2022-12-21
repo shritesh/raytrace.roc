@@ -8,6 +8,8 @@ app "Raytrace"
         RNG.{ RNG },
         Ray.{ Ray },
         World.{ World },
+        Material,
+        Sphere,
     ]
     provides [main] to pf
 
@@ -23,15 +25,17 @@ color = \ray, world, depth, rng, fn ->
         fn rng Color.zero
     else
         when World.hit world ray { min: 0.001, max: Num.maxF64 } is
-            Ok rec ->
-                newRng, hemisphereVec <- RNG.vecInHemisphere rng rec.normal
+            Ok { rec, mat } ->
+                newRng, scatter <- Material.scatter mat ray rec rng
 
-                target = Vec.add rec.p hemisphereVec
+                when scatter is
+                    Ok { attenuation, scattered } ->
+                        innerNewRng, newColor <- color scattered world (depth - 1) newRng
 
-                origin = rec.p
-                direction = Vec.sub target rec.p
+                        fn innerNewRng (Color.mul attenuation newColor)
 
-                color { origin, direction } world (depth - 1) newRng \nrng, c -> fn nrng (Color.shrink c 2)
+                    Err NoHit ->
+                        fn newRng Color.zero
 
             Err _ ->
                 unit = ray.direction |> Vec.unit
@@ -43,9 +47,16 @@ color = \ray, world, depth, rng, fn ->
                 fn rng (Color.add white blue)
 
 main =
+    ground = Lambertian { r: 0.8, g: 0.8, b: 0 }
+    center = Lambertian { r: 0.7, g: 0.3, b: 0.3 }
+    left = Metal { r: 0.8, g: 0.8, b: 0.8 } 0.3
+    right = Metal { r: 0.8, g: 0.6, b: 0.2 } 1.0
+
     world = [
-        { center: { x: 0, y: 0, z: -1 }, radius: 0.5 },
-        { center: { x: 0, y: -100.5, z: -1 }, radius: 100 },
+        Sphere.make { x: 0, y: -100.5, z: -1 } 100 ground,
+        Sphere.make { x: 0, y: 0, z: -1 } 0.5 center,
+        Sphere.make { x: -1, y: 0, z: -1 } 0.5 left,
+        Sphere.make { x: 1, y: 0, z: -1 } 0.5 right,
     ]
 
     allPixels =

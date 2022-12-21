@@ -2,3 +2,4 @@ Raytrace
 *.ppm
 *.o
 platform/target/
+*.roc-format*
