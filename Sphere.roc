@@ -1,15 +1,11 @@
 interface Sphere
-    exposes [Sphere, hit, make]
-    imports [Vec.{ Vec }, Ray.{ Ray }, Hittable.{ Hittable, HitRecord }]
+    exposes [Sphere, hit]
+    imports [Vec.{ Vec }, Ray.{ Ray }, HitRecord.{ HitRecord }]
 
-Sphere := { center : Vec, radius : F64 } has [Hittable { hit }]
-
-make : Vec, F64 -> Sphere
-make = \center, radius ->
-    @Sphere { center, radius }
+Sphere : { center : Vec, radius : F64 }
 
 hit : Sphere, Ray, { min : F64, max : F64 } -> Result HitRecord [NoHit]
-hit = \@Sphere { center, radius }, ray, { min, max } ->
+hit = \{ center, radius }, ray, { min, max } ->
     oc = Vec.sub ray.origin center
     a = Vec.lengthSquared ray.direction
     halfB = Vec.dot oc ray.direction

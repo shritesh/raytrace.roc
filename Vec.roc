@@ -2,6 +2,7 @@ interface Vec
     exposes [
         Vec,
         zero,
+        one,
         neg,
         add,
         sub,
@@ -22,11 +23,14 @@ Vec : { x : F64, y : F64, z : F64 }
 zero : Vec
 zero = { x: 0, y: 0, z: 0 }
 
+one : Vec
+one = { x: 1, y: 1, z: 1 }
+
 neg : Vec -> Vec
-neg = \v -> {
-    x: -v.x,
-    y: -v.y,
-    z: -v.z,
+neg = \{ x, y, z } -> {
+    x: -x,
+    y: -y,
+    z: -z,
 }
 
 add : Vec, Vec -> Vec
@@ -58,10 +62,10 @@ div = \a, b -> {
 }
 
 scale : Vec, F64 -> Vec
-scale = \v, t -> {
-    x: v.x * t,
-    y: v.y * t,
-    z: v.z * t,
+scale = \{ x, y, z }, t -> {
+    x: x * t,
+    y: y * t,
+    z: z * t,
 }
 
 shrink : Vec, F64 -> Vec
@@ -88,5 +92,5 @@ length = \v ->
     lengthSquared v |> Num.sqrt
 
 lengthSquared : Vec -> F64
-lengthSquared = \v ->
-    v.x * v.x + v.y * v.y + v.z * v.z
+lengthSquared = \{ x, y, z } ->
+    x * x + y * y + z * z

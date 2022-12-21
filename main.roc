@@ -7,16 +7,9 @@ app "Raytrace"
         Color.{ Color },
         RNG.{ RNG },
         Ray.{ Ray },
-        Sphere.{ Sphere },
-        HittableList.{ HittableList },
-        Hittable.{ Hittable },
+        World.{ World },
     ]
     provides [main] to pf
-
-world = HittableList.fromList [
-    Sphere.make { x: 0, y: 0, z: -1 } 0.5,
-    Sphere.make { x: 0, y: -100.5, z: -1 } 100,
-]
 
 camera : Camera
 camera = Camera.default
@@ -24,12 +17,12 @@ camera = Camera.default
 samples = 100
 maxDepth = 50
 
-color : Ray, HittableList k, Nat, RNG, (RNG, Color -> a) -> a | k has Hittable
-color = \ray, hittableList, depth, rng, fn ->
+color : Ray, World, Nat, RNG, (RNG, Color -> a) -> a
+color = \ray, world, depth, rng, fn ->
     if depth == 0 then
         fn rng Color.zero
     else
-        when Hittable.hit hittableList ray { min: 0.001, max: Num.maxF64 } is
+        when World.hit world ray { min: 0.001, max: Num.maxF64 } is
             Ok rec ->
                 newRng, hemisphereVec <- RNG.vecInHemisphere rng rec.normal
 
@@ -38,7 +31,7 @@ color = \ray, hittableList, depth, rng, fn ->
                 origin = rec.p
                 direction = Vec.sub target rec.p
 
-                color { origin, direction } hittableList (depth - 1) newRng \nrng, c -> fn nrng (Color.shrink c 2)
+                color { origin, direction } world (depth - 1) newRng \nrng, c -> fn nrng (Color.shrink c 2)
 
             Err _ ->
                 unit = ray.direction |> Vec.unit
@@ -50,6 +43,11 @@ color = \ray, hittableList, depth, rng, fn ->
                 fn rng (Color.add white blue)
 
 main =
+    world = [
+        { center: { x: 0, y: 0, z: -1 }, radius: 0.5 },
+        { center: { x: 0, y: -100.5, z: -1 }, radius: 100 },
+    ]
+
     allPixels =
         j <- List.range { start: At 0, end: Before camera.imageHeight } |> List.reverse |> List.joinMap
         i <- List.range { start: At 0, end: Before camera.imageWidth } |> List.map
