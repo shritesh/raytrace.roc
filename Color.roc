@@ -2,6 +2,7 @@ interface Color
     exposes [
         Color,
         zero,
+        one,
         neg,
         add,
         sub,
@@ -17,6 +18,9 @@ Color : { r : F64, g : F64, b : F64 }
 
 zero : Color
 zero = { r: 0, g: 0, b: 0 }
+
+one : Color
+one = { r: 1, g: 1, b: 1 }
 
 neg : Color -> Color
 neg = \c -> {

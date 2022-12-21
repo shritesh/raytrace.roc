@@ -17,8 +17,9 @@ interface Vec
         lengthSquared,
         nearZero,
         reflect,
+        refract,
     ]
-    imports []
+    imports [Math]
 
 Vec : { x : F64, y : F64, z : F64 }
 
@@ -106,3 +107,12 @@ nearZero = \{ x, y, z } ->
 reflect : Vec, Vec -> Vec
 reflect = \v, n ->
     Vec.sub v (Vec.scale n (2 * Vec.dot v n))
+
+refract : Vec, Vec, F64 -> Vec
+refract = \uv, n, etaiOverEtat ->
+    cosTheta = neg uv |> dot n |> Math.min 1
+    rOutPerp = scale n cosTheta |> add uv |> scale etaiOverEtat
+    s = Num.abs (1 - lengthSquared rOutPerp) |> Num.sqrt
+    rOutParallel = neg n |> scale s
+
+    add rOutPerp rOutParallel

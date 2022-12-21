@@ -16,8 +16,8 @@ app "Raytrace"
 camera : Camera
 camera = Camera.default
 
-samples = 100
-maxDepth = 50
+samples = 10
+maxDepth = 100
 
 color : Ray, World, Nat, RNG, (RNG, Color -> a) -> a
 color = \ray, world, depth, rng, fn ->
@@ -48,14 +48,15 @@ color = \ray, world, depth, rng, fn ->
 
 main =
     ground = Lambertian { r: 0.8, g: 0.8, b: 0 }
-    center = Lambertian { r: 0.7, g: 0.3, b: 0.3 }
-    left = Metal { r: 0.8, g: 0.8, b: 0.8 } 0.3
-    right = Metal { r: 0.8, g: 0.6, b: 0.2 } 1.0
+    center = Lambertian { r: 0.1, g: 0.2, b: 0.5 }
+    left = Dielectric 1.5
+    right = Metal { r: 0.8, g: 0.6, b: 0.2 } 0.0
 
     world = [
         Sphere.make { x: 0, y: -100.5, z: -1 } 100 ground,
         Sphere.make { x: 0, y: 0, z: -1 } 0.5 center,
         Sphere.make { x: -1, y: 0, z: -1 } 0.5 left,
+        Sphere.make { x: -1, y: 0, z: -1 } -0.4 left,
         Sphere.make { x: 1, y: 0, z: -1 } 0.5 right,
     ]
 

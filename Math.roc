@@ -1,5 +1,5 @@
 interface Math
-    exposes [pi, degToRad, clamp]
+    exposes [pi, degToRad, clamp, min, max]
     imports []
 
 pi : F64
@@ -10,10 +10,24 @@ degToRad = \deg ->
     deg * pi / 180
 
 clamp : F64, { min : F64, max : F64 } -> F64
-clamp = \x, { min, max } ->
-    if x < min then
-        min
-    else if x > max then
-        max
+clamp = \x, range ->
+    if x < range.min then
+        range.min
+    else if x > range.max then
+        range.max
     else
         x
+
+min : F64, F64 -> F64
+min = \a, b ->
+    if a < b then
+        a
+    else
+        b
+
+max : F64, F64 -> F64
+max = \a, b ->
+    if a > b then
+        a
+    else
+        b
