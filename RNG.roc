@@ -1,7 +1,7 @@
 interface RNG
     # TODO: find a way to implement a map somehow
-    exposes [RNG, init, real, between, vec, vecBetween, vecInUnitSphere, unitVec, vecInHemisphere, vecInUnitDisk]
-    imports [Vec.{ Vec }]
+    exposes [RNG, init, real, between, vec, color, vecBetween, vecInUnitSphere, unitVec, vecInHemisphere, vecInUnitDisk]
+    imports [Vec.{ Vec }, Color.{ Color }]
 
 # Simple linear congruential generator
 RNG := U32
@@ -43,6 +43,16 @@ vec = \rng, fn ->
     value = { x, y, z }
 
     fn zRng value
+
+color : RNG, (RNG, Color -> a) -> a
+color = \rng, fn ->
+    rRng, r <- real rng
+    gRng, g <- real rRng
+    bRng, b <- real gRng
+
+    value = { r, g, b }
+
+    fn bRng value
 
 vecBetween : RNG, { min : F64, max : F64 }, (RNG, Vec -> a) -> a
 vecBetween = \rng, range, fn ->

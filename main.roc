@@ -40,47 +40,83 @@ color = \ray, world, depth, rng, fn ->
 
                 fn rng (Color.add white blue)
 
-main =
-    aspectRatio = 16 / 9
-    imageHeight = 400
-    imageWidth = imageHeight * aspectRatio |> Num.floor
+scene =
+    spheres =
+        state, a <- List.range { start: At -11, end: Before 11 } |> List.walk { acc: [], rng: RNG.init }
+        innerState, b <- List.range { start: At -11, end: Before 11 } |> List.walk state
 
-    ground = Lambertian { r: 0.8, g: 0.8, b: 0 }
-    center = Lambertian { r: 0.1, g: 0.2, b: 0.5 }
-    left = Dielectric 1.5
-    right = Metal { r: 0.8, g: 0.6, b: 0.2 } 0.0
+        chooseRng, choose <- RNG.real innerState.rng
+        xRng, x <- RNG.real chooseRng
+        zRng, z <- RNG.real xRng
 
-    world = [
-        Sphere.make { x: 0, y: -100.5, z: -1 } 100 ground,
-        Sphere.make { x: 0, y: 0, z: -1 } 0.5 center,
-        Sphere.make { x: -1, y: 0, z: -1 } 0.5 left,
-        Sphere.make { x: -1, y: 0, z: -1 } -0.45 left,
-        Sphere.make { x: 1, y: 0, z: -1 } 0.5 right,
+        center = { x: a + 0.9 * x, y: 0.2, z: b + 0.9 * z }
+        size = Vec.sub center { x: 4, y: 0.2, z: 0 } |> Vec.length
+
+        if size > 0.9 then
+            if choose < 0.8 then
+                # diffuse
+                colorRng1, color1 <- RNG.color zRng
+                colorRng2, color2 <- RNG.color colorRng1
+                albedo = Color.mul color1 color2
+
+                sphere = Sphere.make center 0.2 (Lambertian albedo)
+
+                { acc: List.append innerState.acc sphere, rng: colorRng2 }
+            else if choose < 0.95 then
+                # metal
+                albedoRng, albedo <- RNG.color zRng
+                fuzzRng, fuzz <- RNG.between albedoRng { min: 0, max: 0.5 }
+
+                sphere = Sphere.make center 0.2 (Metal albedo fuzz)
+
+                { acc: List.append innerState.acc sphere, rng: fuzzRng }
+            else
+                # glass
+                sphere = Sphere.make center 0.2 (Dielectric 1.5)
+
+                { acc: List.append innerState.acc sphere, rng: zRng }
+        else
+            { innerState & rng: zRng }
+
+    world = List.join [
+        [Sphere.make { x: 0, y: -1000, z: 0 } 1000 (Lambertian { r: 0.5, g: 0.5, b: 0.5 })],
+        spheres.acc,
+        [
+            Sphere.make { x: 0, y: 1, z: 0 } 1 (Dielectric 1.5),
+            Sphere.make { x: -4, y: 1, z: 0 } 1 (Lambertian { r: 0.4, g: 0.2, b: 0.1 }),
+            Sphere.make { x: 4, y: 1, z: 0 } 1 (Metal { r: 0.7, g: 0.6, b: 0.5 } 0),
+        ],
     ]
 
-    lookFrom = { x: 3, y: 3, z: 2 }
-    lookAt = { x: 0, y: 0, z: -1 }
+    { rng: spheres.rng, world }
+
+main =
+    aspectRatio = 3 / 2
+    imageWidth = 1200
+    imageHeight = imageWidth / aspectRatio |> Num.floor
+
+    samples = 500
+    maxDepth = 50
 
     camera = Camera.make {
-        lookFrom,
-        lookAt,
+        lookFrom: { x: 13, y: 2, z: 3 },
+        lookAt: { x: 0, y: 0, z: 0 },
         up: { x: 0, y: 1, z: 0 },
         fov: 20,
         aspectRatio,
-        aperture: 2,
-        focusDist: Vec.sub lookFrom lookAt |> Vec.length,
+        aperture: 0.1,
+        focusDist: 10,
     }
-
-    samples = 100
-    maxDepth = 50
 
     allPixels =
         j <- List.range { start: At 0, end: Before imageHeight } |> List.reverse |> List.joinMap
         i <- List.range { start: At 0, end: Before imageWidth } |> List.map
         { i, j }
 
+    { rng, world } = scene
+
     image =
-        state, { i, j } <- List.walk allPixels { rng: RNG.init, colors: [] }
+        state, { i, j } <- List.walk allPixels { rng, colors: [] }
 
         multiSampled =
             multisampleState, _ <- List.range { start: At 0, end: Length samples } |> List.walk { rng: state.rng, color: Color.zero }
