@@ -1,7 +1,6 @@
 app "Raytrace"
     packages { pf: "platform/main.roc" }
     imports [
-        pf.Image,
         Camera.{ Camera },
         Vec.{ Vec },
         Color.{ Color },
@@ -11,7 +10,7 @@ app "Raytrace"
         Material,
         Sphere,
     ]
-    provides [main] to pf
+    provides [render] to pf
 
 color : Ray, World, Nat, RNG, (RNG, Color -> a) -> a
 color = \ray, world, depth, rng, fn ->
@@ -90,61 +89,33 @@ scene =
 
     { rng: spheres.rng, world }
 
-main =
-    aspectRatio = 3 / 2
+render = \i, j ->
     imageWidth = 1200
-    imageHeight = imageWidth / aspectRatio |> Num.floor
-
+    imageHeight = 800
     samples = 500
-    maxDepth = 50
 
     camera = Camera.make {
         lookFrom: { x: 13, y: 2, z: 3 },
         lookAt: { x: 0, y: 0, z: 0 },
         up: { x: 0, y: 1, z: 0 },
         fov: 20,
-        aspectRatio,
+        aspectRatio: Num.toFrac imageWidth / Num.toFrac imageHeight,
         aperture: 0.1,
         focusDist: 10,
     }
 
-    allPixels =
-        j <- List.range { start: At 0, end: Before imageHeight } |> List.reverse |> List.joinMap
-        i <- List.range { start: At 0, end: Before imageWidth } |> List.map
-        { i, j }
-
     { rng, world } = scene
+    # TODO: move everything up to this point to an "init" function
+    final =
+        state, _ <- List.range { start: At 0, end: Length samples } |> List.walk { rng, color: Color.zero }
+        uRng, uRand <- RNG.real state.rng
+        vRng, vRand <- RNG.real uRng
+        u = (Num.toFrac i + uRand) / Num.toFrac (imageWidth - 1)
+        v = (Num.toFrac j + vRand) / Num.toFrac (imageHeight - 1)
 
-    image =
-        state, { i, j } <- List.walk allPixels { rng, colors: [] }
+        cameraRng, ray <- Camera.ray camera u v vRng
+        colorRng, c <- color ray world 50 cameraRng
 
-        multiSampled =
-            multisampleState, _ <- List.range { start: At 0, end: Length samples } |> List.walk { rng: state.rng, color: Color.zero }
-            uRng, uRand <- RNG.real multisampleState.rng
-            vRng, vRand <- RNG.real uRng
-            u = (Num.toFrac i + uRand) / Num.toFrac (imageWidth - 1)
-            v = (Num.toFrac j + vRand) / Num.toFrac (imageHeight - 1)
+        { rng: colorRng, color: Color.add state.color c }
 
-            newRng, ray <- Camera.ray camera u v vRng
-            newerRng, c <- color ray world maxDepth newRng
-
-            { rng: newerRng, color: Color.add multisampleState.color c }
-
-        { colors: List.append state.colors multiSampled.color, rng: multiSampled.rng }
-
-    body =
-        image.colors
-        |> List.map \c -> Color.toPixel c samples
-        |> Str.joinWith "\n"
-
-    iw = Num.toStr imageWidth
-    ih = Num.toStr imageHeight
-
-    Image.write
-        """
-        P3
-        \(iw) \(ih)
-        256
-        \(body)
-        
-        """
+    Color.toPixel final.color samples

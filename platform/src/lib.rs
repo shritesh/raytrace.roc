@@ -1,37 +1,19 @@
 #![allow(non_snake_case)]
 
-use core::alloc::Layout;
 use core::ffi::c_void;
-use core::mem::MaybeUninit;
-use libc;
-use roc_std::{RocList, RocStr};
-use std::env;
+use rayon::prelude::*;
+use roc_std::RocStr;
 use std::ffi::CStr;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Write};
 use std::os::raw::c_char;
 
 extern "C" {
-    #[link_name = "roc__mainForHost_1_exposed_generic"]
-    fn roc_main(output: *mut u8);
-
-    #[link_name = "roc__mainForHost_size"]
-    fn roc_main_size() -> i64;
-
-    #[link_name = "roc__mainForHost_1__Fx_caller"]
-    fn call_Fx(flags: *const u8, closure_data: *const u8, output: *mut u8);
-
-    #[allow(dead_code)]
-    #[link_name = "roc__mainForHost_1__Fx_size"]
-    fn size_Fx() -> i64;
-
-    #[link_name = "roc__mainForHost_1__Fx_result_size"]
-    fn size_Fx_result() -> i64;
+    #[link_name = "roc__renderForHost_1_exposed"]
+    fn roc_render(_: u64) -> RocStr;
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn roc_alloc(size: usize, _alignment: u32) -> *mut c_void {
-    libc::malloc(size)
+    return libc::malloc(size);
 }
 
 #[no_mangle]
@@ -41,12 +23,12 @@ pub unsafe extern "C" fn roc_realloc(
     _old_size: usize,
     _alignment: u32,
 ) -> *mut c_void {
-    libc::realloc(c_ptr, new_size)
+    return libc::realloc(c_ptr, new_size);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn roc_dealloc(c_ptr: *mut c_void, _alignment: u32) {
-    libc::free(c_ptr)
+    return libc::free(c_ptr);
 }
 
 #[no_mangle]
@@ -103,45 +85,31 @@ pub unsafe extern "C" fn roc_shm_open(
 
 #[no_mangle]
 pub extern "C" fn rust_main() -> i32 {
-    let size = unsafe { roc_main_size() } as usize;
-    let layout = Layout::array::<u8>(size).unwrap();
+    let width = 1200;
+    let height = 800;
 
-    unsafe {
-        // TODO allocate on the stack if it's under a certain size
-        let buffer = std::alloc::alloc(layout);
+    let indices: Vec<_> = (0..height)
+        .rev()
+        .flat_map(|j| (0..width).map(move |i| (i, j)))
+        .collect();
 
-        roc_main(buffer);
+    let lines: Vec<String> = indices
+        .par_iter()
+        .map(|(i, j)| {
+            eprintln!("{i}, {j}");
+            let num = (i << 32) + j;
+            let color = unsafe { roc_render(num) };
+            color.to_string()
+        })
+        .collect();
 
-        let result = call_the_closure(buffer);
-
-        std::alloc::dealloc(buffer, layout);
-
-        result
-    };
+    println!("P3");
+    println!("{width} {height}");
+    println!("256");
+    for line in lines {
+        println!("{line}");
+    }
 
     // Exit code
     0
-}
-
-unsafe fn call_the_closure(closure_data_ptr: *const u8) -> i64 {
-    let size = size_Fx_result() as usize;
-    let layout = Layout::array::<u8>(size).unwrap();
-    let buffer = std::alloc::alloc(layout) as *mut u8;
-
-    call_Fx(
-        // This flags pointer will never get dereferenced
-        MaybeUninit::uninit().as_ptr(),
-        closure_data_ptr as *const u8,
-        buffer as *mut u8,
-    );
-
-    std::alloc::dealloc(buffer, layout);
-
-    0
-}
-
-#[no_mangle]
-pub extern "C" fn roc_fx_writeImage(string: &RocStr) {
-    let contents = string.as_str();
-    std::fs::write("image.ppm", contents).expect("unable to write to image.ppm");
 }
