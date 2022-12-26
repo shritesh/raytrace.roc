@@ -10,10 +10,40 @@ app "Raytrace"
         Material,
         Sphere,
     ]
-    provides [render] to pf
+    provides [main] { State } to pf
 
-color : Ray, World, Nat, RNG, (RNG, Color -> a) -> a
-color = \ray, world, depth, rng, fn ->
+State : { rng : RNG, color : Color, samples : Nat, width : U32, height : U32, i : U32, j : U32 }
+
+init = \{ width, height, i, j } ->
+    { width, height, i, j, rng: RNG.init, color: Color.zero, samples: 0 }
+
+update = \state ->
+    camera = Camera.make {
+        lookFrom: { x: 13, y: 2, z: 3 },
+        lookAt: { x: 0, y: 0, z: 0 },
+        up: { x: 0, y: 1, z: 0 },
+        fov: 20,
+        aspectRatio: Num.toFrac state.width / Num.toFrac state.height,
+        aperture: 0.1,
+        focusDist: 10,
+    }
+
+    uRng, uRand <- RNG.real state.rng
+    vRng, vRand <- RNG.real uRng
+    u = (Num.toFrac state.i + uRand) / Num.toFrac (state.width - 1)
+    v = (Num.toFrac state.j + vRand) / Num.toFrac (state.height - 1)
+
+    cameraRng, ray <- Camera.ray camera u v vRng
+    colorRng, c <- raytrace ray scene 50 cameraRng
+
+    { state & rng: colorRng, color: Color.add state.color c, samples: state.samples + 1 }
+
+render = \{ color, samples } -> Color.toPixel color samples
+
+main = { init, update, render }
+
+raytrace : Ray, World, Nat, RNG, (RNG, Color -> a) -> a
+raytrace = \ray, world, depth, rng, fn ->
     if depth == 0 then
         fn rng Color.zero
     else
@@ -23,8 +53,7 @@ color = \ray, world, depth, rng, fn ->
 
                 when scatter is
                     Ok { attenuation, scattered } ->
-                        innerNewRng, newColor <- color scattered world (depth - 1) newRng
-
+                        innerNewRng, newColor <- raytrace scattered world (depth - 1) newRng
                         fn innerNewRng (Color.mul attenuation newColor)
 
                     Err NoHit ->
@@ -77,7 +106,7 @@ scene =
         else
             { innerState & rng: zRng }
 
-    world = List.join [
+    List.join [
         [Sphere.make { x: 0, y: -1000, z: 0 } 1000 (Lambertian { r: 0.5, g: 0.5, b: 0.5 })],
         spheres.acc,
         [
@@ -86,36 +115,3 @@ scene =
             Sphere.make { x: 4, y: 1, z: 0 } 1 (Metal { r: 0.7, g: 0.6, b: 0.5 } 0),
         ],
     ]
-
-    { rng: spheres.rng, world }
-
-render = \i, j ->
-    imageWidth = 1200
-    imageHeight = 800
-    samples = 500
-
-    camera = Camera.make {
-        lookFrom: { x: 13, y: 2, z: 3 },
-        lookAt: { x: 0, y: 0, z: 0 },
-        up: { x: 0, y: 1, z: 0 },
-        fov: 20,
-        aspectRatio: Num.toFrac imageWidth / Num.toFrac imageHeight,
-        aperture: 0.1,
-        focusDist: 10,
-    }
-
-    { rng, world } = scene
-    # TODO: move everything up to this point to an "init" function
-    final =
-        state, _ <- List.range { start: At 0, end: Length samples } |> List.walk { rng, color: Color.zero }
-        uRng, uRand <- RNG.real state.rng
-        vRng, vRand <- RNG.real uRng
-        u = (Num.toFrac i + uRand) / Num.toFrac (imageWidth - 1)
-        v = (Num.toFrac j + vRand) / Num.toFrac (imageHeight - 1)
-
-        cameraRng, ray <- Camera.ray camera u v vRng
-        colorRng, c <- color ray world 50 cameraRng
-
-        { rng: colorRng, color: Color.add state.color c }
-
-    Color.toPixel final.color samples

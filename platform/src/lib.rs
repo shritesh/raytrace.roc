@@ -1,14 +1,67 @@
 #![allow(non_snake_case)]
 
 use core::ffi::c_void;
-use rayon::prelude::*;
-use roc_std::RocStr;
+use std::alloc::Layout;
 use std::ffi::CStr;
+use std::mem::MaybeUninit;
 use std::os::raw::c_char;
 
+use pixels::{Pixels, SurfaceTexture};
+use rayon::prelude::*;
+use winit::{
+    dpi::PhysicalSize,
+    event::{Event, WindowEvent},
+    event_loop::EventLoop,
+    window::WindowBuilder,
+};
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct State(*mut c_void);
+
+unsafe impl Send for State {}
+unsafe impl Sync for State {}
+
+#[repr(C)]
+pub struct Canvas {
+    pub height: u32,
+    pub i: u32,
+    pub j: u32,
+    pub width: u32,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct RGB {
+    pub b: u8,
+    pub g: u8,
+    pub r: u8,
+}
+
 extern "C" {
-    #[link_name = "roc__renderForHost_1_exposed"]
-    fn roc_render(_: u64) -> RocStr;
+    #[link_name = "roc__mainForHost_1__Init_caller"]
+    fn call_init(canvas: &Canvas, closure_data: *const u8, state: *mut c_void);
+
+    #[link_name = "roc__mainForHost_1__Init_size"]
+    fn init_size() -> i64;
+
+    #[link_name = "roc__mainForHost_1__Init_result_size"]
+    fn init_result_size() -> i64;
+
+    #[link_name = "roc__mainForHost_1__Update_caller"]
+    fn call_update(state: *const c_void, closure_data: *const u8, output: *mut c_void);
+
+    #[link_name = "roc__mainForHost_1__Update_size"]
+    fn update_size() -> i64;
+
+    #[link_name = "roc__mainForHost_1__Update_result_size"]
+    fn update_result_size() -> i64;
+
+    #[link_name = "roc__mainForHost_1__Render_caller"]
+    fn call_render(state: *const c_void, closure_data: *const u8, output: *mut RGB);
+
+    #[link_name = "roc__mainForHost_1__Render_size"]
+    fn roc_render_size() -> i64;
 }
 
 #[no_mangle]
@@ -83,33 +136,122 @@ pub unsafe extern "C" fn roc_shm_open(
     libc::shm_open(name, oflag, mode as libc::c_uint)
 }
 
+fn init(canvas: &Canvas) -> State {
+    let ptr = unsafe {
+        let ret_val_layout = Layout::array::<u8>(init_result_size() as usize).unwrap();
+
+        let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut c_void;
+
+        let closure_layout = Layout::array::<u8>(init_size() as usize).unwrap();
+
+        let closure_data_buf = std::alloc::alloc(closure_layout);
+
+        call_init(canvas, closure_data_buf, ret_val_buf);
+
+        std::alloc::dealloc(closure_data_buf, closure_layout);
+
+        ret_val_buf
+    };
+
+    State(ptr)
+}
+
+fn update_and_render(state: &State) -> (State, RGB) {
+    let closure_data_buf;
+    let closure_layout;
+
+    let updated_state = unsafe {
+        let ret_val_layout = Layout::array::<u8>(update_result_size() as usize).unwrap();
+
+        let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut c_void;
+
+        closure_layout = Layout::array::<u8>(update_size() as usize).unwrap();
+
+        closure_data_buf = std::alloc::alloc(closure_layout);
+
+        call_update(state.0, closure_data_buf, ret_val_buf);
+
+        ret_val_buf
+    };
+
+    let rendered = unsafe {
+        let mut ret_val: MaybeUninit<RGB> = MaybeUninit::uninit();
+
+        let closure_data_buf =
+            std::alloc::realloc(closure_data_buf, closure_layout, roc_render_size() as usize);
+
+        call_render(updated_state, closure_data_buf, ret_val.as_mut_ptr());
+
+        std::alloc::dealloc(closure_data_buf, closure_layout);
+
+        ret_val.assume_init()
+    };
+
+    (State(updated_state), rendered)
+}
+
 #[no_mangle]
 pub extern "C" fn rust_main() -> i32 {
-    let width = 1200;
-    let height = 800;
+    let width = 600;
+    let height = 400;
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("Canvas")
+        .with_resizable(false)
+        .with_inner_size(PhysicalSize { width, height })
+        .build(&event_loop)
+        .unwrap();
+
+    let mut pixels = {
+        let surface_texture = SurfaceTexture::new(width, height, &window);
+        Pixels::new(width, height, surface_texture).unwrap()
+    };
 
     let indices: Vec<_> = (0..height)
         .rev()
         .flat_map(|j| (0..width).map(move |i| (i, j)))
         .collect();
 
-    let lines: Vec<String> = indices
-        .par_iter()
+    let mut states: Vec<State> = indices
+        .into_par_iter()
         .map(|(i, j)| {
-            eprintln!("{i}, {j}");
-            let num = (i << 32) + j;
-            let color = unsafe { roc_render(num) };
-            color.to_string()
+            let canvas = Canvas {
+                i,
+                j,
+                width,
+                height,
+            };
+
+            init(&canvas)
         })
         .collect();
 
-    println!("P3");
-    println!("{width} {height}");
-    println!("256");
-    for line in lines {
-        println!("{line}");
-    }
+    event_loop.run(move |event, _, control_flow| {
+        control_flow.set_poll();
 
-    // Exit code
-    0
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                control_flow.set_exit();
+            }
+            Event::RedrawRequested(_) => {
+                let (new_states, rgb): (Vec<_>, Vec<_>) =
+                    states.par_iter().map(update_and_render).unzip();
+
+                states = new_states;
+
+                let frame: Vec<u8> = rgb
+                    .iter()
+                    .flat_map(|rgb| [rgb.r, rgb.g, rgb.b, 255])
+                    .collect();
+
+                pixels.get_frame_mut().copy_from_slice(&frame);
+                pixels.render().unwrap();
+            }
+            Event::MainEventsCleared => window.request_redraw(),
+            _ => (),
+        }
+    });
 }

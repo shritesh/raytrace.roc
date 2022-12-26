@@ -68,16 +68,19 @@ shrink : Color, F64 -> Color
 shrink = \c, t ->
     scale c (1 / t)
 
-toPixel : Color, Num * -> Str
+toPixel : Color, Num * -> { r : U8, g : U8, b : U8 }
 toPixel = \{ r, g, b }, samples ->
-    sc = 1 / Num.toFrac samples
+    if Num.isZero samples then
+        { r: 0, g: 0, b: 0 }
+    else
+        sc = 1 / Num.toFrac samples
 
-    sr = Num.sqrt (r * sc)
-    sg = Num.sqrt (g * sc)
-    sb = Num.sqrt (b * sc)
+        sr = Num.sqrt (r * sc)
+        sg = Num.sqrt (g * sc)
+        sb = Num.sqrt (b * sc)
 
-    ir = 256 * Math.clamp sr { min: 0, max: 0.999 } |> Num.floor |> Num.toStr
-    ig = 256 * Math.clamp sg { min: 0, max: 0.999 } |> Num.floor |> Num.toStr
-    ib = 256 * Math.clamp sb { min: 0, max: 0.999 } |> Num.floor |> Num.toStr
+        ir = 256 * Math.clamp sr { min: 0, max: 0.999 } |> Num.floor |> Num.toU8
+        ig = 256 * Math.clamp sg { min: 0, max: 0.999 } |> Num.floor |> Num.toU8
+        ib = 256 * Math.clamp sb { min: 0, max: 0.999 } |> Num.floor |> Num.toU8
 
-    "\(ir) \(ig) \(ib)"
+        { r: ir, g: ig, b: ib }

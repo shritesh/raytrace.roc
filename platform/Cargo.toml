@@ -12,13 +12,11 @@ name = "host"
 path = "src/lib.rs"
 crate-type = ["staticlib", "rlib"]
 
-[[bin]]
-name = "host"
-path = "src/main.rs"
-
 [dependencies]
 roc_std = { path = "../../roc/crates/roc_std" }
 libc = "0.2"
 rayon = "1.6.1"
+pixels = "0.11.0"
+winit = "0.27"
 
 [workspace]

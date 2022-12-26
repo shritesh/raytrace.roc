@@ -1,13 +1,17 @@
 platform "host"
-    requires {} { render : U32, U32 -> Str }
-    exposes []
+    requires { State } { main : {
+        init : Canvas -> State,
+        update : State -> State,
+        render : State -> RGB,
+    } }
+    exposes [Canvas, RGB]
     packages {}
     imports []
-    provides [renderForHost]
+    provides [mainForHost]
 
-renderForHost : U64 -> Str
-renderForHost = \num ->
-    i = num |> Num.shiftRightBy 32 |> Num.toU32
-    j = num |> Num.shiftLeftBy 32 |> Num.shiftRightBy 32 |> Num.toU32
+Canvas : { width : U32, height : U32, i : U32, j : U32 }
 
-    render i j
+RGB : { r : U8, g : U8, b : U8 }
+
+mainForHost : { init : (Canvas -> State) as Init, update : (State -> State) as Update, render : (State -> RGB) as Render }
+mainForHost = main
