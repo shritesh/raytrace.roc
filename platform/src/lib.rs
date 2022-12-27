@@ -236,6 +236,8 @@ pub extern "C" fn rust_main() -> i32 {
         })
         .collect();
 
+    let mut samples = 0;
+
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_poll();
 
@@ -247,16 +249,24 @@ pub extern "C" fn rust_main() -> i32 {
                 control_flow.set_exit();
             }
             Event::MainEventsCleared => {
-                let (new_states, rgb): (Vec<_>, Vec<_>) =
-                    states.par_iter().map(update_and_render).unzip();
+                if samples < 500 {
+                    eprintln!("Samples: {samples}");
+                    let (new_states, rgb): (Vec<_>, Vec<_>) =
+                        states.par_iter().map(update_and_render).unzip();
 
-                states = new_states;
+                    states = new_states;
 
-                let frame: Vec<u8> = rgb.into_iter().flatten().collect();
+                    let frame: Vec<u8> = rgb.into_iter().flatten().collect();
 
-                pixels.get_frame_mut().copy_from_slice(&frame);
-                pixels.render().unwrap();
+                    pixels.get_frame_mut().copy_from_slice(&frame);
+
+                    samples += 1;
+
+                    window.request_redraw();
+                }
             }
+
+            Event::RedrawRequested(_) => pixels.render().unwrap(),
             _ => (),
         }
     });
