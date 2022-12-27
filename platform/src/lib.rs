@@ -3,7 +3,6 @@
 use core::ffi::c_void;
 use std::alloc::Layout;
 use std::ffi::CStr;
-use std::mem::MaybeUninit;
 use std::os::raw::c_char;
 
 use pixels::{Pixels, SurfaceTexture};
@@ -15,12 +14,20 @@ use winit::{
     window::WindowBuilder,
 };
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 struct State(*mut c_void);
 
 unsafe impl Send for State {}
 unsafe impl Sync for State {}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        unsafe {
+            let ret_val_layout = Layout::array::<u8>(update_result_size() as usize).unwrap();
+            std::alloc::dealloc(self.0 as *mut u8, ret_val_layout);
+        }
+    }
+}
 
 #[repr(C)]
 pub struct Canvas {
@@ -58,10 +65,13 @@ extern "C" {
     fn update_result_size() -> i64;
 
     #[link_name = "roc__mainForHost_1__Render_caller"]
-    fn call_render(state: *const c_void, closure_data: *const u8, output: *mut RGB);
+    fn call_render(state: *const c_void, closure_data: *const u8, output: *mut c_void);
 
     #[link_name = "roc__mainForHost_1__Render_size"]
-    fn roc_render_size() -> i64;
+    fn render_size() -> i64;
+
+    #[link_name = "roc__mainForHost_1__Render_result_size"]
+    fn render_result_size() -> i64;
 }
 
 #[no_mangle]
@@ -139,52 +149,51 @@ pub unsafe extern "C" fn roc_shm_open(
 fn init(canvas: &Canvas) -> State {
     let ptr = unsafe {
         let ret_val_layout = Layout::array::<u8>(init_result_size() as usize).unwrap();
-
         let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut c_void;
 
         let closure_layout = Layout::array::<u8>(init_size() as usize).unwrap();
-
         let closure_data_buf = std::alloc::alloc(closure_layout);
 
         call_init(canvas, closure_data_buf, ret_val_buf);
 
         std::alloc::dealloc(closure_data_buf, closure_layout);
-
         ret_val_buf
     };
 
     State(ptr)
 }
 
-fn update_and_render(state: &State) -> (State, RGB) {
-    let closure_data_buf;
-    let closure_layout;
-
+fn update_and_render(state: &State) -> (State, [u8; 4]) {
     let updated_state = unsafe {
         let ret_val_layout = Layout::array::<u8>(update_result_size() as usize).unwrap();
-
         let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut c_void;
 
-        closure_layout = Layout::array::<u8>(update_size() as usize).unwrap();
-
-        closure_data_buf = std::alloc::alloc(closure_layout);
+        let closure_layout = Layout::array::<u8>(update_size() as usize).unwrap();
+        let closure_data_buf = std::alloc::alloc(closure_layout);
 
         call_update(state.0, closure_data_buf, ret_val_buf);
+
+        std::alloc::dealloc(closure_data_buf, closure_layout);
 
         ret_val_buf
     };
 
     let rendered = unsafe {
-        let mut ret_val: MaybeUninit<RGB> = MaybeUninit::uninit();
+        let ret_val_layout = Layout::array::<u8>(render_result_size() as usize).unwrap();
+        let ret_val_buf = std::alloc::alloc(ret_val_layout) as *mut c_void;
 
-        let closure_data_buf =
-            std::alloc::realloc(closure_data_buf, closure_layout, roc_render_size() as usize);
+        let closure_layout = Layout::array::<u8>(render_size() as usize).unwrap();
+        let closure_data_buf = std::alloc::alloc(closure_layout);
 
-        call_render(updated_state, closure_data_buf, ret_val.as_mut_ptr());
+        call_render(updated_state, closure_data_buf, ret_val_buf);
+
+        let rgb = &mut *(ret_val_buf as *mut RGB);
+        let color = [rgb.r, rgb.g, rgb.b, 255];
 
         std::alloc::dealloc(closure_data_buf, closure_layout);
+        std::alloc::dealloc(ret_val_buf as *mut u8, ret_val_layout);
 
-        ret_val.assume_init()
+        color
     };
 
     (State(updated_state), rendered)
@@ -192,8 +201,9 @@ fn update_and_render(state: &State) -> (State, RGB) {
 
 #[no_mangle]
 pub extern "C" fn rust_main() -> i32 {
-    let width = 600;
-    let height = 400;
+    let width = 1200;
+    let height = 800;
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Canvas")
@@ -236,21 +246,17 @@ pub extern "C" fn rust_main() -> i32 {
             } => {
                 control_flow.set_exit();
             }
-            Event::RedrawRequested(_) => {
+            Event::MainEventsCleared => {
                 let (new_states, rgb): (Vec<_>, Vec<_>) =
                     states.par_iter().map(update_and_render).unzip();
 
                 states = new_states;
 
-                let frame: Vec<u8> = rgb
-                    .iter()
-                    .flat_map(|rgb| [rgb.r, rgb.g, rgb.b, 255])
-                    .collect();
+                let frame: Vec<u8> = rgb.into_iter().flatten().collect();
 
                 pixels.get_frame_mut().copy_from_slice(&frame);
                 pixels.render().unwrap();
             }
-            Event::MainEventsCleared => window.request_redraw(),
             _ => (),
         }
     });

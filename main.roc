@@ -106,12 +106,8 @@ scene =
         else
             { innerState & rng: zRng }
 
-    List.join [
-        [Sphere.make { x: 0, y: -1000, z: 0 } 1000 (Lambertian { r: 0.5, g: 0.5, b: 0.5 })],
-        spheres.acc,
-        [
-            Sphere.make { x: 0, y: 1, z: 0 } 1 (Dielectric 1.5),
-            Sphere.make { x: -4, y: 1, z: 0 } 1 (Lambertian { r: 0.4, g: 0.2, b: 0.1 }),
-            Sphere.make { x: 4, y: 1, z: 0 } 1 (Metal { r: 0.7, g: 0.6, b: 0.5 } 0),
-        ],
-    ]
+    [Sphere.make { x: 0, y: -1000, z: 0 } 1000 (Lambertian { r: 0.5, g: 0.5, b: 0.5 })]
+    |> List.concat spheres.acc
+    |> List.append (Sphere.make { x: 0, y: 1, z: 0 } 1 (Dielectric 1.5))
+    |> List.append (Sphere.make { x: -4, y: 1, z: 0 } 1 (Lambertian { r: 0.4, g: 0.2, b: 0.1 }))
+    |> List.append (Sphere.make { x: 4, y: 1, z: 0 } 1 (Metal { r: 0.7, g: 0.6, b: 0.5 } 0))
