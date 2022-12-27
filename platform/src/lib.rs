@@ -250,7 +250,6 @@ pub extern "C" fn rust_main() -> i32 {
             }
             Event::MainEventsCleared => {
                 if samples < 500 {
-                    eprintln!("Samples: {samples}");
                     let (new_states, rgb): (Vec<_>, Vec<_>) =
                         states.par_iter().map(update_and_render).unzip();
 
@@ -261,6 +260,7 @@ pub extern "C" fn rust_main() -> i32 {
                     pixels.get_frame_mut().copy_from_slice(&frame);
 
                     samples += 1;
+                    eprintln!("Samples: {samples}");
 
                     window.request_redraw();
                 }
